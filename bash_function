@@ -6,19 +6,97 @@ RED="tput setaf 1"
 GREEN="tput setaf 2"
 YELLOW="tput setaf 3"
 BLUE="tput setaf 4"
-MAGENTA="tput setaf 5"
 CYAN="tput setaf 6"
 LIGHT_BLUE="$CYAN"
 BOLD="tput bold"
 DEFAULT="tput sgr0"
-RED_BG="tput setab 1"
-GREEN_BG="tput setab 2"
-YELLOW_BG="tput setab 3"
-BLUE_BG="tput setab 4"
-MAGENTA_BG="tput setab 5"
-CYAN_BG="tput setab 6"
 ########### Display color END
 
+
+#######################################
+# check current date
+#
+# Arguments:
+#   excuted command
+# Returns:
+#   current date
+# Example:
+#   now_date
+#######################################
+function now_date() {
+  date +%Y-%m-%d
+}
+
+#######################################
+# check current time
+#
+# Arguments:
+#   excuted command
+# Returns:
+#   current time
+# Example:
+#   now_time
+#######################################
+function now_time() {
+  date +%H:%M:%S
+}
+
+#######################################
+# pkg management check
+#
+# Arguments:
+#   excuted command
+# Returns:
+#   pkg management command
+# Example:
+#   pkg_check
+#######################################
+function pkg_check() {
+  rpm_path=$(type -p rpm)
+	dpkg_path=$(type -p dpkg)
+
+	if [ -e "$rpm_path" ]
+	then
+		echo "rpm"
+	elif [ -e "$dpkg_path" ]
+	then
+		echo "dpkg"
+	else
+		cmd::msg_alert "Con't find package"
+	fi
+}
+
+#######################################
+# ip grep
+#
+# Arguments:
+#   excuted command
+# Returns:
+#   ip address 
+# Example:
+#   ip_grep "$(ifconfig)"
+#######################################
+function ip_grep() {
+   echo "$@" |  grep -E -o "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
+}
+
+#######################################
+# ip format check
+#
+# Arguments:
+#   excuted command
+# Returns:
+#   0(is ip) or 1(is not ip)
+# Example:
+#  if ip_check 255.255.255.0;  then echo "is ip"; fi 
+#######################################
+function ip_check() {
+  if echo "$1" |  grep -E -o "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"; then
+    return 0 
+  else
+    return 1
+  fi
+}
 
 #######################################
 # Exception Check for Every command
@@ -31,22 +109,19 @@ CYAN_BG="tput setab 6"
 #   cd ..
 #   check_exception
 #######################################
-function check_exception() {
+function exception_check () {
+# shellcheck disable=SC2181
   if [ "$?" -eq 0 ]; then
     if [[ $DEBUG -eq "0" ]]; then
-      echo "done" > /dev/null
+      echo "done" >/dev/null
     else
-      echo "done"
+      cmd::msg_ok "Exception Check ok"
     fi
   else
-    echo "above task return code "$?
-    echo "something wrong"
+    cmd::msg_error "Exception Check Fail. Above task return code [ $? ]"
     exit 1
   fi
 }
-
-
-
 
 #######################################
 # Self Update function
@@ -60,7 +135,7 @@ function check_exception() {
 #   None
 #
 #######################################
-function update_self() {
+function self_update () {
   local SELF_UPDATE_PATH="/tmp/self_update"
   local ORIGNAL_PROGRAM_PATH=$2
   local DOWNLOAD_URL=$3
@@ -72,266 +147,235 @@ function update_self() {
       check_exception
       mv -f $SELF_UPDATE_PATH "$ORIGNAL_PROGRAM_PATH"
       check_exception
-      echo "update done"
+      cmd::msg_success "update done"
     else
       rm -rf $SELF_UPDATE_PATH
       check_exception
-      echo "$1 already up to date"
+      cmd::msg_info "$1 already up to date"
     fi
   else
-    echo "$1 runnig"
+    cmd::msg_info "$1 runnig"
   fi
 }
 
-function defined {
-    [[ ${!1-X} == ${!1-Y} ]]
+function cmd::defined() {
+  [[ ${!1-X} == "${!1-Y}" ]]
 }
 
-
-function has_value {
-    if defined $1; then
-        if [[ -n ${!1} ]]; then
-            return 0
-        fi
+function cmd::has_value() {
+  if cmd::defined "$1"; then
+    if [[ -n ${!1} ]]; then
+      return 0
     fi
-    return 1
+  fi
+  return 1
 }
 
+function cmd::msg() {
+  local MESSAGE="$1"
+  local COLOR="$2"
 
-msg () {
+  if ! cmd::has_value COLOR; then
+    COLOR="$DEFAULT"
+  fi
 
-    MESSAGE="$1"
-    COLOR="$2"
-
-    if ! has_value COLOR
-    then
-        COLOR="$DEFAULT"
-    fi
-
-    if has_value "MESSAGE"
-    then
-        $COLOR
-        echo "$MESSAGE"
-        $DEFAULT
-    else
-        echo "-- no message received --"
-    fi
-}
-
-
-msg_status () {
-
-    MESSAGE="$1"
-    STATUS="$2"
-
-    msg "$MESSAGE"
-    display_status "$STATUS"
-}
-
-
-display_status () {
-
-    STATUS="$1"
-
-    case $STATUS in
-
-    EMERGENCY )
-            STATUS="EMERGENCY"
-            COLOR="$RED"
-            ;;
-    ALERT )
-            STATUS="  ALERT  "
-            COLOR="$RED"
-            ;;
-    CRITICAL )
-            STATUS="CRITICAL "
-            COLOR="$RED"
-            ;;
-    ERROR )
-            STATUS="  ERROR  "
-            COLOR="$RED"
-            ;;
-
-    WARNING )
-            STATUS=" WARNING "
-            COLOR="$YELLOW"
-            ;;
-
-    NOTICE )
-            STATUS=" NOTICE  "
-            COLOR="$BLUE"
-            ;;
-    INFO )
-            STATUS="  INFO   "
-            COLOR="$LIGHT_BLUE"
-            ;;
-    DEBUG )
-            STATUS="  DEBUG  "
-            COLOR="$DEFAULT"
-            ;;
-
-    OK  )
-            STATUS="   OK    "
-            COLOR="$GREEN"
-            ;;
-    NOT_OK)
-            STATUS=" NOT OK  "
-            COLOR="$RED"
-            ;;
-
-    PASSED )
-            STATUS=" PASSED  "
-            COLOR="$GREEN"
-            ;;
-
-    SUCCESS )
-            STATUS=" SUCCESS "
-            COLOR="$GREEN"
-            ;;
-
-    FAILURE | FAILED )
-            STATUS=" FAILED  "
-            COLOR="$RED"
-            ;;
-
-    *)
-            STATUS="UNDEFINED"
-            COLOR="$YELLOW"
-    esac
-
-    raw_status "$STATUS" "$COLOR"
-}
-
-msg_emergency () {
-
-    MESSAGE="$1"
-    STATUS="EMERGENCY"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_alert () {
-
-    MESSAGE="$1"
-    STATUS="ALERT"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_critical () {
-
-    MESSAGE="$1"
-    STATUS="CRITICAL"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_error () {
-
-    MESSAGE="$1"
-    STATUS="ERROR"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_warning () {
-
-    MESSAGE="$1"
-    STATUS="WARNING"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_notice () {
-    MESSAGE="$1"
-    STATUS="NOTICE"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_info () {
-    MESSAGE="$1"
-    STATUS="INFO"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_debug () {
-    MESSAGE="$1"
-    STATUS="DEBUG"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_ok () {
-
-    MESSAGE="$1"
-    STATUS="OK"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_not_ok () {
-
-    MESSAGE="$1"
-    STATUS="NOT_OK"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_fail () {
-
-    MESSAGE="$1"
-    STATUS="FAILED"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_success () {
-    MESSAGE="$1"
-    STATUS="SUCCESS"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-msg_passed () {
-    MESSAGE="$1"
-    STATUS="PASSED"
-    msg_status "$MESSAGE" "$STATUS"
-}
-
-cmd () {
-
-    COMMAND="$@"
-    msg "Executing: $COMMAND"
-
-    RESULT=$($COMMAND 2>&1)
-    ERROR="$?"
-
-    MSG=$(echo "Command: ${COMMAND[@]}/") 
-
-    tput cuu1
-
-    if [ "$ERROR" == "0" ]
-    then
-        msg_ok "$MSG"
-#        if [ "$DEBUG" == "1" ]
-#        then
-            msg "$RESULT"
-#        fi
-    else
-        msg_fail "$MSG"
-    fi
-
-    return "$ERROR"
-}
-
-raw_status () {
-
-    STATUS="$1"
-    COLOR="$2"
-
-    function position_cursor () {
-
-        let RES_COL=`tput cols`-12
-        tput cuf $RES_COL
-        tput cuu1
-    }
-
-    position_cursor
-    echo -n "["
-    $DEFAULT
-    $BOLD
+  if cmd::has_value "MESSAGE"; then
     $COLOR
-    echo -n "$STATUS"
+    echo "$MESSAGE"
     $DEFAULT
-    echo "]"
+  else
+    echo "-- no message received --"
+  fi
+}
+
+function cmd::msg_status() {
+  local MESSAGE="$1"
+  local STATUS="$2"
+
+  cmd::msg "$MESSAGE"
+  cmd::display_status "$STATUS"
+}
+
+function cmd::display_status() {
+  local STATUS="$1"
+
+  case $STATUS in
+    EMERGENCY)
+      STATUS="EMERGENCY"
+      COLOR="$RED"
+      ;;
+    ALERT)
+      STATUS="  ALERT  "
+      COLOR="$RED"
+      ;;
+    CRITICAL)
+      STATUS="CRITICAL "
+      COLOR="$RED"
+      ;;
+    ERROR)
+      STATUS="  ERROR  "
+      COLOR="$RED"
+      ;;
+    WARNING)
+      STATUS=" WARNING "
+      COLOR="$YELLOW"
+      ;;
+    NOTICE)
+      STATUS=" NOTICE  "
+      COLOR="$BLUE"
+      ;;
+    INFO)
+      STATUS="  INFO   "
+      COLOR="$LIGHT_BLUE"
+      ;;
+    DEBUG)
+      STATUS="  DEBUG  "
+      COLOR="$DEFAULT"
+      ;;
+    OK)
+      STATUS="   OK    "
+      COLOR="$GREEN"
+      ;;
+    NOT_OK)
+      STATUS=" NOT OK  "
+      COLOR="$RED"
+      ;;
+    PASSED)
+      STATUS=" PASSED  "
+      COLOR="$GREEN"
+      ;;
+    SUCCESS)
+      STATUS=" SUCCESS "
+      COLOR="$GREEN"
+      ;;
+    FAILURE | FAILED)
+      STATUS=" FAILED  "
+      COLOR="$RED"
+      ;;
+    *)
+      STATUS="UNDEFINED"
+      COLOR="$YELLOW"
+      ;;
+  esac
+
+  cmd::raw_status "$STATUS" "$COLOR"
+}
+
+function cmd::msg_emergency() {
+  local MESSAGE="$1"
+  local STATUS="EMERGENCY"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_alert() {
+  local MESSAGE="$1"
+  local STATUS="ALERT"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_critical() {
+  local MESSAGE="$1"
+  local STATUS="CRITICAL"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_error() {
+  local MESSAGE="$1"
+  local STATUS="ERROR"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_warning() {
+  local MESSAGE="$1"
+  local STATUS="WARNING"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_notice() {
+  local MESSAGE="$1"
+  local STATUS="NOTICE"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_info() {
+  local MESSAGE="$1"
+  local STATUS="INFO"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_debug() {
+  local MESSAGE="$1"
+  local STATUS="DEBUG"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_ok() {
+  local MESSAGE="$1"
+  local STATUS="OK"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_not_ok() {
+  local MESSAGE="$1"
+  local STATUS="NOT_OK"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_fail() {
+  local MESSAGE="$1"
+  local STATUS="FAILED"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_success() {
+  local MESSAGE="$1"
+  local STATUS="SUCCESS"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd::msg_passed() {
+  local MESSAGE="$1"
+  local STATUS="PASSED"
+  cmd::msg_status "$MESSAGE" "$STATUS"
+}
+
+function cmd() {
+  local COMMAND=("$@")
+  cmd::msg "Executing: $*"
+
+  RESULT=$("${COMMAND[@]}" 2>&1)
+  local ERROR="$?"
+  local MSG="[COMMAND]  $*"
+
+  tput cuu1
+
+  if [ "$ERROR" == "0" ]; then
+    cmd::msg_ok "$MSG"
+    if [ "$DEBUG" == "1" ]; then
+      cmd::msg "$RESULT"
+    fi
+  else
+    cmd::msg_fail "$MSG"
+  fi
+
+  return "$ERROR"
+}
+
+function cmd:position_cursor() {
+  let RES_COL="$(tput cols)-12"
+  tput cuf "$RES_COL"
+  tput cuu1
+}
+
+function cmd::raw_status() {
+  STATUS="$1"
+  COLOR="$2"
+  cmd:position_cursor
+  echo -n "["
+  $DEFAULT
+  $BOLD
+  $COLOR
+  echo -n "$STATUS"
+  $DEFAULT
+  echo "]"
 }
