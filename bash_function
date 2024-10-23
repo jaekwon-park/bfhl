@@ -176,13 +176,13 @@ function cmd::msg() {
   local COLOR="$2"
 
   if ! cmd::has_value COLOR; then
-    COLOR="$DEFAULT"
+    COLOR="$RESULT_DEFAULT"
   fi
 
   if cmd::has_value "MESSAGE"; then
     $COLOR
     echo "$MESSAGE"
-    $DEFAULT
+    $RESULT_DEFAULT
   else
     echo "-- no message received --"
   fi
@@ -372,10 +372,10 @@ function cmd::raw_status() {
   COLOR="$2"
   cmd:position_cursor
   echo -n "["
-  $DEFAULT
+  $RESULT_DEFAULT
   $BOLD
   $COLOR
   echo -n "$STATUS"
-  $DEFAULT
+  $RESULT_DEFAULT
   echo "]"
 }
