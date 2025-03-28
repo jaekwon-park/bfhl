@@ -25,27 +25,42 @@ RESULT_DEFAULT="tput sgr0"
 
 
 function progress_bar() {
+
+FOOTER_LINES=1
+TERM_HEIGHT=$(tput lines)
+SCROLL_START_LINE=$((FOOTER_LINES + 1))
+SCROLL_END_LINE=$((TERM_HEIGHT))
+FOOTER_START_INDEX=$((TERM_HEIGHT))
+
   local CMDS=("${@}")
   local MAX_STEPS=$#
-  local BAR_SIZE="##########"
+  local BAR_SIZE="##############################"
   local MAX_BAR_SIZE="${#BAR_SIZE}"
   local CLEAR_LINE="\\033[K"
+  tput clear
 
   tput civis -- invisible
 
-  echo -ne "\\r[${BAR_SIZE:0:0}] 0 %$CLEAR_LINE"
+  tput cup 0 0
+  tput el
+  echo -ne "\\r[${BAR_SIZE:0:percBar}] $perc %$CLEAR_LINE"
   for step in "${!CMDS[@]}"; do
     perc=$((step * 100 / MAX_STEPS))
     percBar=$((perc * MAX_BAR_SIZE / 100))
-    echo -ne "\\r[${BAR_SIZE:0:percBar}] $perc %$CLEAR_LINE"
     ${CMDS[$step]}
+    tput sc
+    tput cup 0 0
+    tput el
+
     perc=$(((step + 1) * 100 / MAX_STEPS))
     percBar=$((perc * MAX_BAR_SIZE / 100))
     echo -ne "\\r[${BAR_SIZE:0:percBar}] $perc %$CLEAR_LINE"
+    sleep 0.1
+    tput rc
   done
-  echo ""
 
   tput cnorm -- normal
+  tput el
 }
 
 #######################################
