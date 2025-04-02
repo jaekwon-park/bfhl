@@ -265,6 +265,7 @@ function progress_bar() {
     ${CMDS[$step]}
     draw_progress_bar $perc
   done
+  destroy_scroll_area
 }
 
 #######################################
